@@ -10,9 +10,232 @@ A personal assistant you talk to on Discord. It runs on your own PC (or a small 
 - **Safe by default**: routine actions run in Claude Code auto mode; deletions, invitations and RSVPs ask you with ✅/❌ buttons; Gmail, Drive, files and shell are blocked.
 - **Slash commands**: `/status`, `/context`, `/model`, `/effort`, `/fast`, `/new`, `/delete`, `/remote` (open a conversation in the Claude app).
 
-Requirements: Python 3.12+, a claude.ai account with the Google Calendar, Notion and Todoist connectors, a Discord bot in a private server of yours.
+Requirements: Python 3.12+, a claude.ai account with the Google Calendar, Notion and Todoist connectors, a Discord bot in a private server of yours. Step by step: [Getting started](#getting-started).
 
 > Usage counts against your claude.ai plan's limits, shared with your other Claude sessions.
+
+## Getting started
+
+From `git clone` to "Nethor answered my DM", on Windows. Do the steps in order: each one gives you something a later one needs. Steps 4 to 9 hand you a token and some ids; paste them into a Notepad window as you go (don't save it inside the repo) and move them into `.env` in step 10.
+
+### 1. Prerequisites
+
+- Windows 10 or 11. Linux works too: see [Move to Linux](#move-to-linux) for the commands that differ.
+- Python 3.12 or newer (check with `py --version`).
+- Git.
+- The Claude Code CLI, logged in with your claude.ai account: install it ([Claude Code docs](https://code.claude.com/docs)), run `claude`, type `/login`, sign in, then `/exit`. Nethor's SDK ships its own CLI and reuses this login.
+- A Discord account.
+- A Google account (for Google Calendar), a Notion account and a Todoist account.
+
+No API key is involved: usage counts against your claude.ai plan's limits.
+
+### 2. Get the code
+
+1. Clone the repo:
+   ```powershell
+   git clone https://github.com/tolfaine/Nethor.git
+   ```
+2. Go into it (every later command runs from this folder):
+   ```powershell
+   cd Nethor
+   ```
+3. Create the Python environment:
+   ```powershell
+   py -3 -m venv .venv
+   ```
+4. Install Nethor and its test tools:
+   ```powershell
+   .venv\Scripts\python -m pip install -e ".[dev]"
+   ```
+
+### 3. Connect the claude.ai connectors
+
+1. On claude.ai open **Settings → Connectors**.
+2. Connect **Google Calendar**, **Notion** and **Todoist** (sign in to each when asked).
+3. Check that Nethor sees all three (it can take a minute or two):
+   ```powershell
+   .venv\Scripts\python -I -X utf8 scripts\probe.py --auth-check
+   ```
+   The last line must be `PASS`. `FAIL, not connected: [...]` names the connector to fix.
+
+> ⚠️ Leave `CLAUDE_CODE_OAUTH_TOKEN` empty and never set `ANTHROPIC_API_KEY`. A `claude setup-token` token is inference-only, so the connectors don't connect and the probe prints `FAIL`; an API key drops them too (the bot and the probe ignore it anyway).
+
+Nethor turns your other connectors off for its own folder (`agent_home`) only; your other Claude Code projects are unaffected.
+
+### 4. Create the Discord bot
+
+You add the bot to a server of yours in the last bullet. No server of your own yet? Do [step 5](#5-a-private-discord-server) first.
+
+1. Open https://discord.com/developers/applications → **New Application**.
+2. Name it (e.g. `Nethor`), accept the terms → **Create**.
+3. Open the **Bot** tab. Optional: set an icon and a **Username**. The username is what people see in chats; the application name is separate.
+4. **Reset Token** → confirm → copy the token. It is shown once and becomes `DISCORD_BOT_TOKEN`. Treat it like a password: anyone who has it can act as your bot. Lost it? Reset it again; the old one stops working.
+5. Same page, **Privileged Gateway Intents**: turn on **Message Content Intent** and **Server Members Intent** → **Save Changes**. Server Members is how Nethor tells private channels from public ones; with either intent off Discord refuses the login, the bot exits with code 2 and `run.ps1` stops.
+6. Same page: turn **Public Bot** off → **Save Changes**, so only you can add it to servers. If Discord says a private application can't have a default authorization link: **Installation** tab → **Install Link** → **None** → **Save Changes**, then turn **Public Bot** off again.
+7. **OAuth2** tab → **URL Generator**: tick the scopes **bot** and **applications.commands**.
+8. Under **Bot Permissions** tick **View Channels**, **Send Messages**, **Send Messages in Threads**, **Create Public Threads**, **Manage Threads** and **Read Message History**.
+9. Copy the generated URL at the bottom, open it in your browser, pick your server → **Continue** → **Authorize**.
+
+The **Bot Permissions** calculator on the **Bot** page only builds an invite link; it doesn't change a bot that's already in a server. To change permissions later, see [Discord permissions reference](#discord-permissions-reference).
+
+### 5. A private Discord server
+
+Skip this if you already have a server of your own. You need one because Discord only lets you DM a bot you share a server with.
+
+1. In the Discord app, click **+** (**Add a Server**) at the bottom of the server list.
+2. **Create My Own** → **For me and my friends**.
+3. Name it → **Create**.
+4. Came here from step 4? Go back and finish it.
+
+### 6. Copy your Discord ids
+
+Discord ids are long numbers like `123456789012345678`.
+
+1. Discord app → **User Settings** (the gear next to your name) → **Advanced** → turn **Developer Mode** on.
+2. Right-click your own name (in a message or the member list) → **Copy User ID** → this is `ALLOWED_USER_IDS`.
+3. Optional, to talk to Nethor in server channels: right-click the server icon → **Copy Server ID** → this is `ALLOWED_GUILD_IDS`. It also makes the slash commands show up in that server right away.
+
+### 7. Optional: a private forum
+
+A forum gives you one conversation per topic: every new post is its own conversation, and its title and tags become the topic. Skip this for DMs only.
+
+1. In your server, **Create Channel** → **Forum** → name it (e.g. `nethor`) → **Create Channel**.
+2. Right-click the forum → **Edit Channel** → **Permissions**.
+3. Remove **View Channel** from `@everyone`.
+4. Add yourself and the bot's role (Discord names it after the bot) with **View Channel**, **Send Messages in Threads**, **Read Message History** and **Manage Threads** allowed → **Save Changes**.
+5. Right-click the forum → **Copy Channel ID** → this is `FORUM_CHANNEL_IDS`.
+
+### 8. Google Calendar
+
+Nethor puts every reminder on a calendar of its own, as a 15-minute "⏰ …" event with a popup at the time.
+
+1. On Google Calendar, in the left sidebar: **Other calendars** → **+** → **Create new calendar**.
+2. Name it (e.g. `Nethor`) → **Create calendar**.
+3. Under **My calendars**, hover the new calendar → the three dots → **Settings and sharing**.
+4. Scroll to **Integrate calendar** → copy the **Calendar ID** (`…@group.calendar.google.com`) → this is `ASSISTANT_CALENDAR_ID`.
+
+### 9. Notion
+
+1. Create a page named `Assistant`.
+2. Inside it, create two child pages: `Sessions` and `Memory`.
+3. In `Memory`, write a one-line intro, then add these six headings (type `## ` and the name). Nethor adds one bullet per fact under them:
+   ```
+   ## About me
+   ## People
+   ## Preferences
+   ## Routines & places
+   ## Projects & goals
+   ## Other
+   ```
+4. On each of the three pages: **Share** → **Copy link**. The page id is the 32 characters at the end of the link, e.g. `https://www.notion.so/Memory-0123456789abcdef0123456789abcdef` → `0123456789abcdef0123456789abcdef`.
+5. Note them as `NOTION_ASSISTANT_PAGE_ID`, `NOTION_SESSIONS_PAGE_ID` and `NOTION_MEMORY_PAGE_ID`.
+
+Notion's built-in Memory (`memory`) is not used.
+
+### 10. Fill in `.env`
+
+1. Create your `.env` from the template:
+   ```powershell
+   copy .env.example .env
+   ```
+2. Open it:
+   ```powershell
+   notepad .env
+   ```
+3. Fill in the values below, save, and close Notepad (and the scratch window from steps 4 to 9 without saving).
+
+| Variable | Needed? | Where it comes from | Format |
+|---|---|---|---|
+| `DISCORD_BOT_TOKEN` | Required for Discord (not for `--console`) | Step 4, **Reset Token** | one long string with two dots |
+| `CLAUDE_CODE_OAUTH_TOKEN` | **Leave empty** | (see the warning in step 3) | empty |
+| `ALLOWED_USER_IDS` | Required for Discord (not for `--console`) | Step 6, **Copy User ID** | `123456789012345678` (several: comma-separated) |
+| `FORUM_CHANNEL_IDS` | Optional; empty = no forum | Step 7, **Copy Channel ID** | `123456789012345678` (several: comma-separated) |
+| `ALLOWED_GUILD_IDS` | Optional; empty = no server channels | Step 6, **Copy Server ID** | `123456789012345678` (several: comma-separated) |
+| `ASSISTANT_NAME` | Optional; default `Nethor` | Your choice; renaming = this + the Discord portal name | `Nethor` |
+| `ASSISTANT_TZ` | Optional; default `Europe/Oslo`, **set yours** | Your IANA time zone; used for reminders, the 04:00 reset and "back at HH:MM" | `Europe/London`, `America/New_York` |
+| `ASSISTANT_CALENDAR_ID` | Required | Step 8, **Calendar ID** | `…@group.calendar.google.com` |
+| `NOTION_ASSISTANT_PAGE_ID` | Required | Step 9, `Assistant` page | `0123456789abcdef0123456789abcdef` |
+| `NOTION_SESSIONS_PAGE_ID` | Required | Step 9, `Sessions` page | `0123456789abcdef0123456789abcdef` |
+| `NOTION_MEMORY_PAGE_ID` | Optional; empty = memory off (startup WARNING) | Step 9, `Memory` page | `0123456789abcdef0123456789abcdef` |
+| `ASSISTANT_MODEL` | Optional; default `claude-sonnet-5-5` | Claude model id | `claude-sonnet-5-5` |
+
+A missing required value is named when Nethor starts. `.env` is git-ignored (so are `data/` and `logs/`); never commit it.
+
+### 11. Try it without Discord
+
+1. Start the terminal chat (it needs only the calendar and Notion values):
+   ```powershell
+   .venv\Scripts\python -I -X utf8 -m assistant --console
+   ```
+2. At `you>`, type a question, e.g. `what's on my calendar tomorrow?`. Actions that need your approval ask `[y/N]` right there.
+3. Type `!quit` to exit (`!new` starts a fresh session).
+
+### 12. Run the bot
+
+1. Start it and leave the window open:
+   ```powershell
+   powershell -ExecutionPolicy Bypass -File scripts\run.ps1
+   ```
+   It restarts the bot when it exits (waiting 5 s, up to 5 min) and logs to `logs\`: `run.log` (starts and exits), `stdout-stderr.log` (console output, config errors), `assistant.log` (everything the bot does).
+2. Or run it without a window, from the `Nethor` folder:
+   ```powershell
+   Start-Process powershell -WindowStyle Hidden -ArgumentList '-NoProfile','-ExecutionPolicy','Bypass','-File','scripts\run.ps1'
+   ```
+
+Don't start it as a Claude Code background task: Claude Code stops those when memory runs low.
+
+### 13. First test
+
+1. In your server's member list, click the bot and send it a message: that opens your DM with it.
+2. Send `what's on my calendar tomorrow?`. The first reply of a conversation takes a little longer (it reads the Memory page first).
+3. Send `remind me in 5 minutes to stretch` → a "⏰ …" event on Nethor's calendar, with a popup in 5 minutes.
+4. Send `add buy milk to my todo` → a task in Todoist.
+5. Send `remember my favourite tea is genmaicha` → a new line on the Memory page.
+6. Type `/` to see the [slash commands](#slash-commands).
+
+### 14. Start automatically (recommended)
+
+1. Stop the copy from step 12 (close its window): two copies on one token both answer.
+2. Register the Task Scheduler task `Nethor`, which starts `run.ps1` hidden at logon (a normal, non-admin PowerShell is fine):
+   ```powershell
+   powershell -ExecutionPolicy Bypass -File scripts\install-task.ps1
+   ```
+3. Start it now:
+   ```powershell
+   Start-ScheduledTask -TaskName Nethor
+   ```
+4. If the PC should answer all day: in the Windows power settings, set sleep to **Never** when plugged in.
+
+To remove the task: `Unregister-ScheduledTask -TaskName Nethor -Confirm:$false`.
+
+### Troubleshooting
+
+| Problem | Fix |
+|---|---|
+| "The application did not respond" on a slash command, or no reply at all | The bot isn't running: check `logs\run.log`, then start it (step 12, or `Start-ScheduledTask -TaskName Nethor`). |
+| The probe prints `FAIL` | Connect the named connector at claude.ai → **Settings → Connectors**; make sure `CLAUDE_CODE_OAUTH_TOKEN` is empty and `ANTHROPIC_API_KEY` isn't set. |
+| The bot exits right away with code 2 | `logs\stdout-stderr.log` names the setting to fix (`Config error: …`), or **Server Members Intent** / **Message Content Intent** is off (step 4). `run.ps1` doesn't retry on code 2: start it again after the fix. |
+| Slash commands missing in DMs | They can take a while to appear the first time; restart the Discord app. |
+| A server sync fails with `403 Missing Access` (in `logs\assistant.log`) | The bot was invited without command rights: open the OAuth2 URL again with **bot** + **applications.commands** (step 4). |
+| `⚠️ I can't open a thread here: give me the Create Public Threads permission in this channel.` | Give the bot's role **Create Public Threads** there ([reference](#discord-permissions-reference)). |
+| `/delete` says it needs **Manage Threads** | Give the bot's role **Manage Threads** in that channel or forum. |
+| Calendar questions refused in a channel | That channel is public (someone else can read it): use a DM, the forum or a channel only you can see. Right after startup every channel counts as public for a moment while the member list loads. |
+
+### Discord permissions reference
+
+Set them for the whole server in **Server Settings → Roles →** the bot's role, or per channel in **Edit Channel → Permissions**.
+
+| Permission | Why Nethor needs it |
+|---|---|
+| **View Channels** | To see the channel at all. |
+| **Send Messages** | To post in the channel (e.g. a ⚠️ when it can't open a thread). |
+| **Send Messages in Threads** | Forum posts and mention threads are threads; **Send Messages** alone doesn't work there. |
+| **Create Public Threads** | An @mention opens a thread on that message; without it Nethor posts `⚠️ … Create Public Threads …` in the channel instead. |
+| **Manage Threads** | Only for `/delete`; without it the thread stays and the reply says so. |
+| **Read Message History** | To read the messages it answers and the thread it's in. |
+
+- **Private channel** (full Nethor, approvals in the thread): **Edit Channel → Permissions** → remove **View Channel** from `@everyone`, add yourself and the bot's role with **View Channel**, **Send Messages**, **Send Messages in Threads**, **Create Public Threads** and **Read Message History**. Anyone else with access, admins included, makes it public; bots don't count.
+- Channels only answer in servers listed in `ALLOWED_GUILD_IDS`; forum posts in `FORUM_CHANNEL_IDS` always stay private conversations. The full rules are in [How it works](#how-it-works).
 
 ## How it works
 
@@ -39,36 +262,6 @@ Requirements: Python 3.12+, a claude.ai account with the Google Calendar, Notion
 - Permissions (`src/assistant/permissions.py`, default deny): reads, Todoist task edits, events on Nethor's calendar, edits of the Memory and Sessions pages and new pages under Assistant/Sessions run automatically. Private conversations run in Claude Code **auto mode**: writes to other calendars and Notion create/edit/move anywhere get no hook decision, so the auto-mode classifier approves routine ones and blocks risky ones (if it can't decide, you're asked). Deletions (events, Todoist tasks, Notion pages), invites, RSVPs, page updates that would delete child pages, and new pages in the built-in `memory` always need your ✅/❌ in the DM, forum post or private thread (10 min, then denied; only you can click). Everything else (Gmail, Drive, files, shell, …) is blocked and hidden from the model.
 - Usage limit hit: you get `⏳ limit hit, back at HH:MM`; the message is queued (`data/pending.json`) and answered automatically after the reset. It never falls back to an API key.
 - Logs: `logs/assistant.log` (rotating): every routing decision (key, mode, reason), every ignored trigger, every tool call with its tier and mode, every approval outcome, every slash command, each turn's model, fast-mode state and speed, every error.
-
-## Setup (Windows, first time)
-
-1. **Python env** (Python 3.12+), from the repo folder:
-   ```powershell
-   py -3 -m venv .venv
-   .venv\Scripts\python -m pip install -e ".[dev]"
-   ```
-2. **Claude login**: `claude` CLI logged in with your claude.ai account (the SDK ships its own CLI and reuses that login). Leave `CLAUDE_CODE_OAUTH_TOKEN` empty: a `claude setup-token` token is inference-only and the claude.ai connectors don't connect with it (probe prints `FAIL`). Never set `ANTHROPIC_API_KEY` either (it drops the connectors; the bot strips it anyway).
-3. **claude.ai connectors**: Google Calendar, Notion and Todoist connected at claude.ai → Settings → Connectors. Check with:
-   ```powershell
-   .venv\Scripts\python -I -X utf8 scripts\probe.py --auth-check
-   ```
-   It must print `PASS`. The bot disables the other connectors for its own folder (`agent_home`) only; your other Claude Code projects are unaffected.
-4. **A Google Calendar for Nethor**: Google Calendar → Other calendars → + → Create new calendar (e.g. `Nethor`). Then its Settings → Integrate calendar → copy **Calendar ID** (`…@group.calendar.google.com`) → `ASSISTANT_CALENDAR_ID`. The bot sets a popup at 0 min on each reminder.
-5. **Notion**: a page `Assistant` with two child pages, `Sessions` and `Memory`. Give `Memory` a one-line intro and the headings `## About me`, `## People`, `## Preferences`, `## Routines & places`, `## Projects & goals`, `## Other` (Nethor adds one bullet per fact under them). Copy each page's 32-character id from its URL → `NOTION_ASSISTANT_PAGE_ID`, `NOTION_SESSIONS_PAGE_ID`, `NOTION_MEMORY_PAGE_ID`. Notion's built-in Memory (parent `memory`) is not used.
-6. **Discord app**:
-   - https://discord.com/developers/applications → New Application → name `Nethor`.
-   - Bot tab → Reset Token → copy into `.env` as `DISCORD_BOT_TOKEN`. Turn **Message Content Intent** and **Server Members Intent** on (the second tells private channels from public ones; without it Discord refuses the login and the bot exits with code 2, so `run.ps1` stops instead of restarting). Turn **Public Bot** off.
-   - OAuth2 → URL Generator → scopes `bot` + `applications.commands`, bot permissions View Channels, Send Messages, Send Messages in Threads, Create Public Threads, Manage Threads, Read Message History → open the URL → add it to a private server of yours (DMs need a shared server).
-   - Discord app → Settings → Advanced → Developer Mode on → right-click your name → Copy User ID → `ALLOWED_USER_IDS`.
-   - **Server permissions** for the bot (Server Settings → Roles → the `Nethor` role, or per channel): View Channels, Send Messages, **Send Messages in Threads** (forum posts and mention threads are threads; Send Messages alone doesn't work there), **Create Public Threads** (an @mention opens a thread on that message; without it Nethor posts `⚠️ … Create Public Threads …` in the channel instead), **Manage Threads** (only for `/delete`; without it the thread stays and the reply says so), Read Message History. The developer portal's "Bot Permissions" calculator only builds an invite link; it doesn't change a bot that's already in your server.
-7. **Forum and public mode** (optional; leave the ids empty for DM-only):
-   - Create a forum channel, e.g. `#nethor` (Create Channel → Forum). Edit Channel → Permissions → make it private: remove View Channel from `@everyone`, add yourself and the `Nethor` role with View Channel, Send Messages in Threads, Read Message History (and Manage Threads for `/delete`).
-   - Developer Mode on → right-click the forum → Copy Channel ID → `FORUM_CHANNEL_IDS`. Right-click the server icon → Copy Server ID → `ALLOWED_GUILD_IDS`.
-   - New post in the forum = new conversation; the title and tags become its topic. @Nethor in any other channel of that server = a new thread on your message, private mode if only you (and bots) can see the channel, public mode otherwise; the channel's name and description become its topic. For a private channel: Edit Channel → Permissions → remove View Channel from `@everyone`, add yourself and the `Nethor` role (View Channel, Send Messages, Send Messages in Threads, Create Public Threads, Read Message History). Anyone else with access, admins included, makes it public.
-8. **`.env`**: `copy .env.example .env` and fill it in. Missing values are named on startup. `.env`, `data/` and `logs/` are git-ignored; never commit them.
-9. **Try it in the terminal** (no Discord needed): `.venv\Scripts\python -I -X utf8 -m assistant --console`
-10. **Run the bot**: `powershell -ExecutionPolicy Bypass -File scripts\run.ps1` (restart loop, backoff 5 s → 5 min, `logs\run.log`). DM the bot. To run it without a window: `Start-Process powershell -WindowStyle Hidden -ArgumentList '-NoProfile','-ExecutionPolicy','Bypass','-File','scripts\run.ps1'`. Don't start it as a Claude Code background task: Claude Code stops those when memory runs low.
-11. **Start at logon** (recommended): `powershell -ExecutionPolicy Bypass -File scripts\install-task.ps1` registers the Task Scheduler task `Nethor`; start it now with `Start-ScheduledTask -TaskName Nethor`. Set Windows power to never sleep on AC if the PC should answer all day.
 
 ## Commands
 

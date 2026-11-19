@@ -17,7 +17,7 @@ RestartSec=5
 # Backoff 5 s -> 5 min (systemd 254+; older versions ignore these two lines).
 RestartSteps=6
 RestartMaxDelaySec=300
-# Exit code 2 = config error in .env or Server Members Intent off in the Discord portal; restarting won't fix it.
+# Exit code 2 = config error in .env, or Message Content / Server Members intent off in the Discord portal; restarting won't fix it.
 RestartPreventExitStatus=2
 Environment=PYTHONUNBUFFERED=1
 

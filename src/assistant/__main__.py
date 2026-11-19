@@ -127,8 +127,8 @@ def fatal_exit_code(exc: BaseException) -> int:
     import discord
 
     if isinstance(exc, discord.PrivilegedIntentsRequired):
-        log.error("Discord refused the members intent: enable Server Members Intent in the Developer Portal → "
-                  "your app → Bot, then start the bot again (%s)", exc)
+        log.error("Discord refused a privileged intent: enable Message Content Intent and Server Members Intent in "
+                  "the Developer Portal → your app → Bot, then start the bot again (%s)", exc)
         return 2
     log.error("fatal error", exc_info=exc)
     return 1

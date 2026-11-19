@@ -30,7 +30,7 @@ while ($true) {
     $Ran = [int]((Get-Date) - $Started).TotalSeconds
     Write-RunLog "exited with code $Code after $Ran s"
     if ($Code -eq 2) {
-        Write-RunLog 'setup error (exit 2): fix .env or enable Server Members Intent (Discord Developer Portal -> Bot), see logs\stdout-stderr.log; not restarting'
+        Write-RunLog 'setup error (exit 2): fix .env or enable Message Content and Server Members intents (Discord Developer Portal -> Bot), see logs\stdout-stderr.log; not restarting'
         exit 2
     }
     if ($Ran -ge $HealthySeconds) { $Delay = $MinDelay }
