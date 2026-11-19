@@ -1,0 +1,25 @@
+# systemd user unit for the Linux move.
+# Install: cp deploy/nethor.service ~/.config/systemd/user/ && systemctl --user daemon-reload
+#          systemctl --user enable --now nethor && loginctl enable-linger "$USER"
+# Logs:    journalctl --user -u nethor -f   (app log: ~/Nethor/logs/assistant.log)
+[Unit]
+Description=Nethor, personal Discord assistant (Claude Agent SDK)
+After=network-online.target
+Wants=network-online.target
+StartLimitIntervalSec=0
+
+[Service]
+Type=simple
+WorkingDirectory=%h/Nethor
+ExecStart=%h/Nethor/.venv/bin/python -I -X utf8 -m assistant
+Restart=always
+RestartSec=5
+# Backoff 5 s -> 5 min (systemd 254+; older versions ignore these two lines).
+RestartSteps=6
+RestartMaxDelaySec=300
+# Exit code 2 = config error in .env or Server Members Intent off in the Discord portal; restarting won't fix it.
+RestartPreventExitStatus=2
+Environment=PYTHONUNBUFFERED=1
+
+[Install]
+WantedBy=default.target

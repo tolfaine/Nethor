@@ -1,0 +1,32 @@
+# Secrets and personal overrides: never commit
+.env
+.env.*
+!.env.example
+CLAUDE.local.md
+
+# Runtime state: conversation ids, queued messages, logs (personal data)
+data/
+logs/
+*.log
+
+# Python
+.venv/
+venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+*.egg-info/
+build/
+dist/
+.coverage
+htmlcov/
+
+# Editors and OS
+.vscode/
+.idea/
+*.swp
+.DS_Store
+Thumbs.db
+
+# Claude Code files the CLI may create next to the agent
+agent_home/.claude/
