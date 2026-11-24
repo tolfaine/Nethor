@@ -15,7 +15,10 @@ CALENDAR = "mcp__claude_ai_Google_Calendar__"
 NOTION = "mcp__claude_ai_Notion__"
 TODOIST = "mcp__claude_ai_Todoist__"
 
+DISCORD = "mcp__nethor_discord__"
+
 KEPT_SERVERS = ("claude.ai Google Calendar", "claude.ai Notion", "claude.ai Todoist")
+OWN_SERVERS = ("nethor_discord",)  # in-process servers this app adds itself; never hidden or toggled off
 PUBLIC_TOOLS = ("WebSearch", "WebFetch")
 
 _HEX32 = re.compile(r"[0-9a-f]{32}")
@@ -123,7 +126,7 @@ def _build_table() -> dict[str, Rule]:
     )
     # Deletes and anything that messages other people still ask the owner, even in auto mode.
     ask = _names(CALENDAR, "delete_event respond_to_event") + _names(TODOIST, "delete-object")
-    ask += _names(NOTION, "notion-delete-pages")
+    ask += _names(NOTION, "notion-delete-pages") + _names(DISCORD, "create_channels")
     table.update({name: Tier.ALLOW for name in auto})
     table.update({name: Tier.ASK for name in ask})
     table[NOTION + "notion-move-pages"] = Tier.AUTO

@@ -8,6 +8,7 @@ import logging
 import sys
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
+from typing import Any
 
 from assistant.agent import Agent, ApprovalRequest
 from assistant.config import Config, ConfigError, config_warnings, load_from_environment
@@ -85,7 +86,12 @@ async def run_discord(config: Config) -> None:
 
     assert config.discord_bot_token is not None
     bot = AssistantBot(config)
-    agent = Agent(config, DiscordApprover(bot))
+    from assistant.discord_tools import SERVER_NAME, build_discord_server
+
+    def own_servers() -> dict[str, Any]:
+        return {SERVER_NAME: build_discord_server(lambda: bot, config.allowed_guild_ids)}
+
+    agent = Agent(config, DiscordApprover(bot), own_servers)
     await agent.discover()
     bot.manager = build_manager(config, agent)
     try:

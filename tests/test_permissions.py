@@ -3,8 +3,9 @@ from pathlib import Path
 
 import pytest
 
+from assistant.keys import PUBLIC
 from assistant.permissions import (
-    CALENDAR, NOTION, TABLE, TODOIST, Targets, Tier, decide, normalize_notion_id, server_prefix,
+    CALENDAR, DISCORD, NOTION, TABLE, TODOIST, Targets, Tier, decide, normalize_notion_id, server_prefix,
 )
 
 CAL_ID = "abc123@group.calendar.google.com"
@@ -27,6 +28,13 @@ DENY = ["Bash", "Read", "Write", "Edit", "Glob", "Grep", "Task", "Skill", "mcp__
         "mcp__claude_ai_Google_Drive__search_files", "mcp__claude_ai_Atlassian__createJiraIssue",
         NOTION + "notion-memory-search", NOTION + "notion-create-comment", NOTION + "notion-duplicate-page", NOTION + "notion-get-users",
         TODOIST + "add-projects", TODOIST + "project-management", TODOIST + "add-reminders", "mcp__unknown__x", ""]
+
+
+def test_create_channels_asks_in_private_and_is_denied_in_public() -> None:
+    name = "mcp__nethor_discord__create_channels"
+    args = {"category_id": "1", "names": ["x"]}
+    assert tier(name, args) is Tier.ASK
+    assert decide(name, args, TARGETS, PUBLIC).tier is Tier.DENY
 
 
 def tier(name: str, tool_input: dict | None = None) -> Tier:
@@ -53,7 +61,8 @@ def test_everything_else_denied(name: str) -> None:
 
 
 def test_table_names_exist_in_real_connector_tool_list() -> None:
-    assert sorted(set(TABLE) - set(DISCOVERED)) == []
+    own = {name for name in TABLE if name.startswith(DISCORD)}  # in-process tools aren't connector tools
+    assert sorted(set(TABLE) - set(DISCOVERED) - own) == []
 
 
 def test_every_discovered_tool_outside_the_table_is_denied() -> None:

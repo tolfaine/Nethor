@@ -73,7 +73,7 @@ You add the bot to a server of yours in the last bullet. No server of your own y
 5. Same page, **Privileged Gateway Intents**: turn on **Message Content Intent** and **Server Members Intent** → **Save Changes**. Server Members is how Nethor tells private channels from public ones; with either intent off Discord refuses the login, the bot exits with code 2 and `run.ps1` stops.
 6. Same page: turn **Public Bot** off → **Save Changes**, so only you can add it to servers. If Discord says a private application can't have a default authorization link: **Installation** tab → **Install Link** → **None** → **Save Changes**, then turn **Public Bot** off again.
 7. **OAuth2** tab → **URL Generator**: tick the scopes **bot** and **applications.commands**.
-8. Under **Bot Permissions** tick **View Channels**, **Send Messages**, **Send Messages in Threads**, **Create Public Threads**, **Manage Threads** and **Read Message History**.
+8. Under **Bot Permissions** tick **View Channels**, **Send Messages**, **Send Messages in Threads**, **Create Public Threads**, **Manage Threads**, **Manage Channels** (only to let Nethor create channels) and **Read Message History**.
 9. Copy the generated URL at the bottom, open it in your browser, pick your server → **Continue** → **Authorize**.
 
 The **Bot Permissions** calculator on the **Bot** page only builds an invite link; it doesn't change a bot that's already in a server. To change permissions later, see [Discord permissions reference](#discord-permissions-reference).
@@ -232,6 +232,7 @@ Set them for the whole server in **Server Settings → Roles →** the bot's rol
 | **Send Messages in Threads** | Forum posts and mention threads are threads; **Send Messages** alone doesn't work there. |
 | **Create Public Threads** | An @mention opens a thread on that message; without it Nethor posts `⚠️ … Create Public Threads …` in the channel instead. |
 | **Manage Threads** | Only for `/delete`; without it the thread stays and the reply says so. |
+| **Manage Channels** | Only for the `create_channels` tool (creates text channels in a category you name, after you approve). |
 | **Read Message History** | To read the messages it answers and the thread it's in. |
 
 - **Private channel** (full Nethor, approvals in the thread): **Edit Channel → Permissions** → remove **View Channel** from `@everyone`, add yourself and the bot's role with **View Channel**, **Send Messages**, **Send Messages in Threads**, **Create Public Threads** and **Read Message History**. Anyone else with access, admins included, makes it public; bots don't count.

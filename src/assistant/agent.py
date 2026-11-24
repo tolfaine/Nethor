@@ -29,7 +29,9 @@ from claude_agent_sdk import (
 
 from assistant.config import Config
 from assistant.keys import PRIVATE, PUBLIC, Mode, mode_for_key
-from assistant.permissions import KEPT_SERVERS, PUBLIC_TOOLS, Decision, Targets, Tier, decide, is_listed, server_prefix
+from assistant.permissions import (
+    KEPT_SERVERS, OWN_SERVERS, PUBLIC_TOOLS, Decision, Targets, Tier, decide, is_listed, server_prefix,
+)
 from assistant.remote import (
     FAILED_STATE, REATTACH_TIMEOUT_SECONDS, REMOTE_TIMEOUT_SECONDS, MessagePump, RemoteError, RemoteInfo, RemoteLink,
     RemoteSpec, answers, bridge_state_of, log_bridge_state, parse_link, permission_mode_of, remote_request,
@@ -165,7 +167,7 @@ def disallowed_tools(servers: list[dict[str, Any]]) -> list[str]:
     hidden: list[str] = []
     for server in servers:
         prefix = server_prefix(server["name"])
-        if server["name"] not in KEPT_SERVERS:
+        if server["name"] not in KEPT_SERVERS + OWN_SERVERS:
             hidden.append(prefix.removesuffix("__"))
             continue
         hidden.extend(prefix + t["name"] for t in server.get("tools", []) if not is_listed(prefix + t["name"]))
@@ -230,7 +232,7 @@ async def enable_kept_servers(client: ClaudeSDKClient) -> list[dict[str, Any]]:
     servers = await wait_for_servers(client)
     reenabled = []
     for server in servers:
-        wanted = server["name"] in KEPT_SERVERS
+        wanted = server["name"] in KEPT_SERVERS + OWN_SERVERS
         if wanted and server["status"] == "disabled":
             await client.toggle_mcp_server(server["name"], True)
             reenabled.append(server["name"])
@@ -274,9 +276,11 @@ def client_change(applied: Effective, wanted: Effective) -> ClientChange:
 
 
 class Agent:
-    def __init__(self, config: Config, approver: Approver) -> None:
+    def __init__(self, config: Config, approver: Approver,
+                 own_servers: Callable[[], dict[str, Any]] | None = None) -> None:
         self._config = config
         self._approver = approver
+        self._own_servers = own_servers
         self._clients: dict[str, _UserClient] = {}
         self._disallowed: list[str] = []
         self._public_disallowed: list[str] = []
@@ -301,6 +305,7 @@ class Agent:
         wanted = self.effective(settings)
         return ClaudeAgentOptions(
             tools=profile.tools,
+            mcp_servers=self._own_servers() if self._own_servers and profile.mode == PRIVATE else {},
             allowed_tools=[],
             disallowed_tools=profile.disallowed,
             system_prompt=profile.system_prompt,
