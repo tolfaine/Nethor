@@ -123,10 +123,12 @@ def _build_table() -> dict[str, Rule]:
         )
         + _names(NOTION, "notion-search notion-fetch notion-get-self")
         + ["WebSearch", "WebFetch"]
+        # Reads, own reactions, and files posted into the conversation itself: no approval.
+        + _names(DISCORD, "list_channels list_archived_threads read_messages get_reactions react send_file")
     )
     # Deletes and anything that messages other people still ask the owner, even in auto mode.
     ask = _names(CALENDAR, "delete_event respond_to_event") + _names(TODOIST, "delete-object")
-    ask += _names(NOTION, "notion-delete-pages") + _names(DISCORD, "create_channels")
+    ask += _names(NOTION, "notion-delete-pages") + _names(DISCORD, "create_channels rename_channels set_channel_topics delete_channels")
     table.update({name: Tier.ALLOW for name in auto})
     table.update({name: Tier.ASK for name in ask})
     table[NOTION + "notion-move-pages"] = Tier.AUTO

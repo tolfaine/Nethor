@@ -5,7 +5,8 @@ from __future__ import annotations
 import asyncio
 import logging
 import re
-from collections.abc import Callable
+from collections.abc import AsyncIterator, Callable
+from contextlib import AsyncExitStack, asynccontextmanager
 from dataclasses import dataclass, field, replace
 from typing import Any
 
@@ -406,7 +407,7 @@ class AssistantBot(discord.Client):
     async def setup_hook(self) -> None:
         if self.manager is None:
             raise RuntimeError("AssistantBot.manager must be set before start()")
-        self._maintenance = asyncio.create_task(run_maintenance_loop(self.manager, self.deliver))
+        self._maintenance = asyncio.create_task(run_maintenance_loop(self.manager, self.deliver, self.typing_for))
         self._sync = asyncio.create_task(sync_commands(self.tree, self.config.allowed_guild_ids))
 
     async def on_ready(self) -> None:
@@ -523,6 +524,17 @@ class AssistantBot(discord.Client):
         if not hasattr(channel, "send"):
             raise TypeError(f"channel {destination.target_id} for {key!r} can't receive messages")
         return await self._guard_private(key, channel, destination)
+
+    @asynccontextmanager
+    async def typing_for(self, user_key: str) -> AsyncIterator[None]:
+        """'Nethor is typing…' in a conversation found by key (queued answers); never blocks the answer itself."""
+        async with AsyncExitStack() as stack:
+            try:
+                channel, _ = await self.channel_for(user_key)
+                await stack.enter_async_context(channel.typing())
+            except Exception:
+                log.warning("no typing indicator for key=%s", user_key, exc_info=True)
+            yield
 
     async def deliver(self, user_key: str, text: str) -> None:
         channel, destination = await self.channel_for(user_key)

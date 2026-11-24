@@ -277,7 +277,7 @@ def client_change(applied: Effective, wanted: Effective) -> ClientChange:
 
 class Agent:
     def __init__(self, config: Config, approver: Approver,
-                 own_servers: Callable[[], dict[str, Any]] | None = None) -> None:
+                 own_servers: Callable[[str], dict[str, Any]] | None = None) -> None:
         self._config = config
         self._approver = approver
         self._own_servers = own_servers
@@ -305,7 +305,7 @@ class Agent:
         wanted = self.effective(settings)
         return ClaudeAgentOptions(
             tools=profile.tools,
-            mcp_servers=self._own_servers() if self._own_servers and profile.mode == PRIVATE else {},
+            mcp_servers=self._own_servers(user_key) if self._own_servers and profile.mode == PRIVATE else {},
             allowed_tools=[],
             disallowed_tools=profile.disallowed,
             system_prompt=profile.system_prompt,

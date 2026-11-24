@@ -223,6 +223,29 @@ async def test_deliver_goes_to_dm_post_or_channel() -> None:
     assert post.sent[0][0] == "late post" and general.sent[0][0] == "late public"
 
 
+async def test_typing_for_types_in_the_conversation_channel() -> None:
+    post = FakeChannel(700, parent_id=FORUM)
+    typed: list[int] = []
+
+    @asynccontextmanager
+    async def typing() -> Any:
+        typed.append(post.id)
+        yield
+
+    post.typing = typing  # type: ignore[method-assign]
+    bot, _ = make_bot({"thread:700": SessionRecord("s", channel_id=700, owner_id=OWNER)}, {700: post})
+    async with bot.typing_for("thread:700"):
+        assert typed == [700]
+
+
+async def test_typing_for_an_unknown_conversation_still_lets_the_answer_run(caplog: pytest.LogCaptureFixture) -> None:
+    bot, _ = make_bot({}, {})
+    ran = False
+    async with bot.typing_for("console"):  # no channel for this key
+        ran = True
+    assert ran and "no typing indicator for key=console" in caplog.text
+
+
 async def test_forum_approval_buttons_go_into_the_post_for_the_owner() -> None:
     post = FakeChannel(700, parent_id=FORUM)
     bot, _ = make_bot({"thread:700": SessionRecord("s", channel_id=700, owner_id=OWNER)}, {700: post})

@@ -21,7 +21,8 @@ AUTO = [CALENDAR + n for n in "list_calendars list_events search_events get_even
         "user-info fetch-object search fetch add-tasks complete-tasks uncomplete-tasks update-tasks reschedule-tasks"
     ).split()
 ] + [NOTION + n for n in "notion-search notion-fetch notion-get-self".split()] + [
-    "WebSearch", "WebFetch"]
+    "WebSearch", "WebFetch"] + [
+    DISCORD + n for n in "list_channels list_archived_threads read_messages get_reactions react send_file".split()]
 ASK = [CALENDAR + "delete_event", CALENDAR + "respond_to_event", TODOIST + "delete-object",
        NOTION + "notion-delete-pages"]
 DENY = ["Bash", "Read", "Write", "Edit", "Glob", "Grep", "Task", "Skill", "mcp__claude_ai_Gmail__send_message",
@@ -30,9 +31,14 @@ DENY = ["Bash", "Read", "Write", "Edit", "Glob", "Grep", "Task", "Skill", "mcp__
         TODOIST + "add-projects", TODOIST + "project-management", TODOIST + "add-reminders", "mcp__unknown__x", ""]
 
 
-def test_create_channels_asks_in_private_and_is_denied_in_public() -> None:
-    name = "mcp__nethor_discord__create_channels"
-    args = {"category_id": "1", "names": ["x"]}
+@pytest.mark.parametrize(("name", "args"), [
+    ("create_channels", {"category_id": "1", "names": ["x"]}),
+    ("rename_channels", {"renames": [{"channel_id": "1", "current_name": "x", "new_name": "🎮 x"}]}),
+    ("set_channel_topics", {"topics": [{"channel_id": "1", "current_name": "x", "topic": "About x"}]}),
+    ("delete_channels", {"channels": [{"channel_id": "1", "name": "x"}]}),
+])
+def test_discord_channel_tools_ask_in_private_and_are_denied_in_public(name: str, args: dict) -> None:
+    name = "mcp__nethor_discord__" + name
     assert tier(name, args) is Tier.ASK
     assert decide(name, args, TARGETS, PUBLIC).tier is Tier.DENY
 

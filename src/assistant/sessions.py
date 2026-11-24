@@ -8,7 +8,7 @@ import logging
 import time
 from collections import defaultdict
 from collections.abc import AsyncIterator, Awaitable, Callable, Iterable
-from contextlib import AsyncExitStack, asynccontextmanager
+from contextlib import AbstractAsyncContextManager, AsyncExitStack, asynccontextmanager, nullcontext
 from dataclasses import asdict, dataclass, field, fields, replace
 from datetime import datetime, timedelta
 from datetime import time as dtime
@@ -61,6 +61,7 @@ def wrap_up_prompt(sessions_page_id: str, memory_page_id: str = "") -> str:
 
 
 Deliver = Callable[[str, str], Awaitable[None]]
+Typing = Callable[[str], AbstractAsyncContextManager[Any]]  # "typing…" in a conversation while its turn runs
 WrapUpOutcome = Literal["saved", "failed", "skipped"]
 
 
@@ -568,13 +569,13 @@ class SessionManager:
         info = self._agent.remote_info(user_key) if live and record.remote else None
         return describe_remote(record.remote, live, (info.state if info else None) or record.remote_state)
 
-    async def tick(self, deliver: Deliver) -> None:
+    async def tick(self, deliver: Deliver, typing: Typing | None = None) -> None:
         for user_key in self._store.keys():
             async with self.lock(user_key):
                 await self._expire_if_due(user_key, force=False)
         await self._close_idle_clients()
         for item in self._queue.due(self._clock()):
-            if not await self._answer_pending(item, deliver):
+            if not await self._answer_pending(item, deliver, typing):
                 break
 
     async def _close_idle_clients(self) -> None:
@@ -587,7 +588,7 @@ class SessionManager:
                 log.info("closing idle client key=%s", user_key)
                 await self._agent.close_session(user_key)
 
-    async def _answer_pending(self, item: PendingItem, deliver: Deliver) -> bool:
+    async def _answer_pending(self, item: PendingItem, deliver: Deliver, typing: Typing | None = None) -> bool:
         """Answer one queued message; False when still rate limited."""
         async with self.lock(item.user_key):
             if not self._queue.has(item.item_id):
@@ -595,8 +596,9 @@ class SessionManager:
             late =(f"(sent at {datetime.fromtimestamp(item.queued_at, self._tz):%H:%M}, answered late "
                     f"because of a usage limit) {item.text}")
             try:
-                result = await self._turn(item.user_key, stamp(join_prompt(item.preamble, late), self._clock(),
-                                                                self._tz))
+                async with typing(item.user_key) if typing else nullcontext():
+                    result = await self._turn(item.user_key, stamp(join_prompt(item.preamble, late), self._clock(),
+                                                                    self._tz))
             except Exception:
                 log.exception("pending answer failed item=%s attempts=%d", item.item_id, item.attempts)
                 return await self._retry_or_give_up(item, deliver)
@@ -637,10 +639,10 @@ async def _safe_deliver(deliver: Deliver, user_key: str, text: str) -> None:
         log.exception("delivery failed key=%s text=%r", user_key, text[:200])
 
 
-async def run_maintenance_loop(manager: SessionManager, deliver: Deliver) -> None:
+async def run_maintenance_loop(manager: SessionManager, deliver: Deliver, typing: Typing | None = None) -> None:
     while True:
         try:
-            await manager.tick(deliver)
+            await manager.tick(deliver, typing)
         except Exception:
             log.exception("maintenance tick failed")
         await asyncio.sleep(manager.seconds_until_next_tick())

@@ -1,3 +1,5 @@
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from zoneinfo import ZoneInfo
@@ -170,6 +172,33 @@ async def test_rate_limit_queues_then_answers_after_reset(setup) -> None:
     assert delivered == [("u", "ok"), ("u", "ok")]
     assert queue.items == []
     assert "answered late" in agent.calls[1][1] and agent.calls[1][1].endswith("remind me")
+
+
+async def test_queued_answer_shows_typing_while_its_turn_runs(setup) -> None:
+    manager, agent, clock, _, _ = setup
+    reset = clock.now + HOUR
+    agent.results = [TurnResult("", None, limited=True, resets_at=reset)]
+    await manager.handle("u", "remind me")
+    events: list[str] = []
+    real_turn = agent.run_turn
+
+    async def turn(*args: object) -> TurnResult:
+        events.append("turn")
+        return await real_turn(*args)
+
+    @asynccontextmanager
+    async def typing(user_key: str) -> AsyncIterator[None]:
+        events.append(f"typing {user_key}")
+        yield
+        events.append("typing done")
+
+    async def deliver(user_key: str, text: str) -> None:
+        events.append("deliver")
+
+    agent.run_turn = turn  # type: ignore[method-assign]
+    clock.now = reset + 60
+    await manager.tick(deliver, typing)
+    assert events == ["typing u", "turn", "typing done", "deliver"]
 
 
 async def test_new_command_wraps_up_and_drops_session(setup) -> None:

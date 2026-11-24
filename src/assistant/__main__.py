@@ -86,10 +86,16 @@ async def run_discord(config: Config) -> None:
 
     assert config.discord_bot_token is not None
     bot = AssistantBot(config)
+    from assistant.discord_common import DiscordContext
     from assistant.discord_tools import SERVER_NAME, build_discord_server
 
-    def own_servers() -> dict[str, Any]:
-        return {SERVER_NAME: build_discord_server(lambda: bot, config.allowed_guild_ids)}
+    def own_servers(user_key: str) -> dict[str, Any]:
+        async def conversation_channel() -> Any:
+            channel, _ = await bot.channel_for(user_key)
+            return channel
+
+        context = DiscordContext(lambda: bot, config.allowed_guild_ids, config.tz, conversation_channel)
+        return {SERVER_NAME: build_discord_server(context)}
 
     agent = Agent(config, DiscordApprover(bot), own_servers)
     await agent.discover()
