@@ -30,3 +30,6 @@ Thumbs.db
 
 # Claude Code files the CLI may create next to the agent
 agent_home/.claude/
+
+# Personal Claude Code settings for dev sessions
+.claude/settings.local.json
